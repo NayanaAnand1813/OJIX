@@ -8,7 +8,11 @@ const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 
-const DATA_DIR = path.join(__dirname, 'data');
+// Vercel serverless functions have a read-only deployment filesystem; /tmp is
+// the only writable location available during an invocation.
+const DATA_DIR = process.env.VERCEL
+  ? path.join('/tmp', 'ojix-data')
+  : path.join(__dirname, 'data');
 if (!fs.existsSync(DATA_DIR)) {
   fs.mkdirSync(DATA_DIR, { recursive: true });
 }
