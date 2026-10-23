@@ -387,25 +387,27 @@ app.use((err, req, res, next) => {
 });
 
 // 8. START SERVER & GRACEFUL SHUTDOWN
-const server = app.listen(PORT, () => {
-  console.log(`====================================================`);
-  console.log(`  OJIX Premium Platform Server is running`);
-  console.log(`  Environment: ${NODE_ENV}`);
-  console.log(`  Listening at: http://localhost:${PORT}`);
-  console.log(`  Health probe: http://localhost:${PORT}/health`);
-  console.log(`  DPDP Act 2023 Statutory Compliance: ACTIVE`);
-  console.log(`====================================================`);
-});
-
-const gracefulShutdown = (signal) => {
-  console.log(`[OJIX SERVER] Received ${signal}. Closing HTTP server gracefully...`);
-  server.close(() => {
-    console.log('[OJIX SERVER] HTTP server closed. Process terminating safely.');
-    process.exit(0);
+if (require.main === module) {
+  const server = app.listen(PORT, () => {
+    console.log(`====================================================`);
+    console.log(`  OJIX Premium Platform Server is running`);
+    console.log(`  Environment: ${NODE_ENV}`);
+    console.log(`  Listening at: http://localhost:${PORT}`);
+    console.log(`  Health probe: http://localhost:${PORT}/health`);
+    console.log(`  DPDP Act 2023 Statutory Compliance: ACTIVE`);
+    console.log(`====================================================`);
   });
-};
 
-process.on('SIGINT', () => gracefulShutdown('SIGINT'));
-process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
+  const gracefulShutdown = (signal) => {
+    console.log(`[OJIX SERVER] Received ${signal}. Closing HTTP server gracefully...`);
+    server.close(() => {
+      console.log('[OJIX SERVER] HTTP server closed. Process terminating safely.');
+      process.exit(0);
+    });
+  };
+
+  process.on('SIGINT', () => gracefulShutdown('SIGINT'));
+  process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
+}
 
 module.exports = app;
