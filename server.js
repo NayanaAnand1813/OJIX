@@ -339,9 +339,20 @@ app.use(express.static(path.join(__dirname), staticOptions));
 
 // Clean URL rewrites (e.g. /legalos -> /legalos.html)
 const pageRoutes = [
+  { path: '/products', file: 'index.html' },
+  { path: '/services', file: 'index.html' },
+  { path: '/about', file: 'index.html' },
+  { path: '/contact', file: 'index.html' },
+  { path: '/process', file: 'index.html' },
+  { path: '/security', file: 'index.html' },
+  { path: '/industries', file: 'index.html' },
+  { path: '/companyos', file: 'companyos.html' },
   { path: '/legalos', file: 'legalos.html' },
   { path: '/campusos', file: 'campusos.html' },
   { path: '/procureos', file: 'procureos.html' },
+  { path: '/buildos', file: 'buildos.html' },
+  { path: '/travelos', file: 'travelos.html' },
+  { path: '/fitos', file: 'fitos.html' },
   { path: '/dpdp-compliance', file: 'dpdp-compliance.html' },
   { path: '/dpdp', file: 'dpdp-compliance.html' }
 ];

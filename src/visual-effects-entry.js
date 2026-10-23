@@ -1775,11 +1775,12 @@ export { initScrollStack, initVaporType };
 export function autoInitVisuals() {
   const isFinePointer = window.matchMedia?.('(hover: hover) and (pointer: fine)').matches ?? true;
   const reducedMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false;
+  const mobilePerformanceMode = window.matchMedia?.('(max-width: 1023px), (hover: none), (pointer: coarse)').matches ?? false;
 
   // React Bits Pro: Vapor Type for High-Impact Headings & Key Words
   const vaporTypeElements = document.querySelectorAll('.vapor-type, [data-vapor-words]');
   vaporTypeElements.forEach((el) => {
-    initVaporType(el);
+    if (!mobilePerformanceMode && !reducedMotion) initVaporType(el);
   });
 
   // React Bits Pro: Scroll Stack for Portfolio Showcase
@@ -1789,7 +1790,7 @@ export function autoInitVisuals() {
   });
 
   // React Bits Pro Hero 21: Theme-Aware GLSL Aurora
-  if (!reducedMotion) {
+  if (!reducedMotion && !mobilePerformanceMode && isFinePointer) {
     const auroraContainers = document.querySelectorAll('.hero-aurora-canvas, #hero-aurora-canvas');
     auroraContainers.forEach((el) => {
       initHeroAuroraShader(el);
@@ -1798,6 +1799,10 @@ export function autoInitVisuals() {
     const shaderContainers = document.querySelectorAll('.hero-shader-stage, #hero-shader-stage');
     shaderContainers.forEach((el) => {
       initHeroGradientShader(el);
+    });
+  } else {
+    document.querySelectorAll('.hero-aurora-canvas, #hero-aurora-canvas').forEach((el) => {
+      el.classList.add('aurora-fallback');
     });
   }
 

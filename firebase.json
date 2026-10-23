@@ -30,6 +30,15 @@
     ],
     "cleanUrls": true,
     "trailingSlash": false,
+    "rewrites": [
+      { "source": "/products", "destination": "/index.html" },
+      { "source": "/services", "destination": "/index.html" },
+      { "source": "/about", "destination": "/index.html" },
+      { "source": "/contact", "destination": "/index.html" },
+      { "source": "/process", "destination": "/index.html" },
+      { "source": "/security", "destination": "/index.html" },
+      { "source": "/industries", "destination": "/index.html" }
+    ],
     "headers": [
       {
         "source": "**",

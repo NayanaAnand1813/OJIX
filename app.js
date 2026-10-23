@@ -1,12 +1,41 @@
 document.documentElement.classList.add("js-enabled");
 
 const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+const mobilePerformanceMode = window.matchMedia('(max-width: 1023px), (hover: none), (pointer: coarse)').matches;
+
+const SECTION_ROUTES = {
+  '/products': 'platforms',
+  '/services': 'capabilities',
+  '/about': 'about',
+  '/contact': 'contact',
+  '/process': 'process',
+  '/security': 'security-trust',
+  '/industries': 'platforms'
+};
+
+const scrollToCurrentRouteSection = () => {
+  const sectionId = SECTION_ROUTES[window.location.pathname.replace(/\/$/, '')];
+  if (!sectionId) return;
+  requestAnimationFrame(() => {
+    document.getElementById(sectionId)?.scrollIntoView({ behavior: 'auto', block: 'start' });
+  });
+};
+
+window.addEventListener('popstate', scrollToCurrentRouteSection);
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', scrollToCurrentRouteSection, { once: true });
+} else {
+  scrollToCurrentRouteSection();
+}
 
 // 1. SCROLL PROGRESS & HEADER ELEVATION
 const siteHeader = document.querySelector('.site-header');
 const progressBar = document.getElementById('scroll-progress');
 
-function handleScroll() {
+let scrollUpdatePending = false;
+let headerScrolledState = null;
+
+function updateScrollInterface() {
   const scrollTop = window.scrollY || document.documentElement.scrollTop;
   const docHeight = document.documentElement.scrollHeight - window.innerHeight;
   const scrollPercent = docHeight > 0 ? (scrollTop / docHeight) * 100 : 0;
@@ -16,16 +45,24 @@ function handleScroll() {
   }
 
   if (siteHeader) {
-    if (scrollTop > 20) {
-      siteHeader.classList.add('is-scrolled');
-    } else {
-      siteHeader.classList.remove('is-scrolled');
+    const shouldBeScrolled = scrollTop > 20;
+    if (shouldBeScrolled !== headerScrolledState) {
+      siteHeader.classList.toggle('is-scrolled', shouldBeScrolled);
+      headerScrolledState = shouldBeScrolled;
     }
   }
+
+  scrollUpdatePending = false;
+}
+
+function handleScroll() {
+  if (scrollUpdatePending) return;
+  scrollUpdatePending = true;
+  requestAnimationFrame(updateScrollInterface);
 }
 
 window.addEventListener('scroll', handleScroll, { passive: true });
-handleScroll();
+updateScrollInterface();
 
 // 1B. BACK TO TOP SMOOTH SCROLL HANDLER
 function handleScrollToTop(e) {
@@ -312,7 +349,37 @@ if (engineTabs.length > 0) {
 
 // 4D. APPLE-INSPIRED PRODUCT PORTFOLIO CATEGORY FILTERING
 const portfolioFilterPills = document.querySelectorAll('.apple-portfolio-filters .filter-pill[data-filter]');
-const filterableCards = document.querySelectorAll('#platforms .platform-card[data-category]');
+const portfolioGrid = document.getElementById('portfolio-products-grid');
+const filterableCards = portfolioGrid ? portfolioGrid.querySelectorAll('.platform-card[data-category]') : [];
+const portfolioResultCount = document.getElementById('portfolio-result-count');
+const portfolioPrevButton = document.querySelector('.portfolio-arrow-prev');
+const portfolioNextButton = document.querySelector('.portfolio-arrow-next');
+
+const getVisiblePortfolioCards = () => Array.from(filterableCards).filter((card) => !card.classList.contains('is-filtered-out'));
+
+const updatePortfolioControls = () => {
+  if (!portfolioGrid) return;
+  const visibleCards = getVisiblePortfolioCards();
+  if (portfolioResultCount) {
+    const activePill = document.querySelector('.apple-portfolio-filters .filter-pill.is-active');
+    const categoryName = activePill?.dataset.filter === 'all'
+      ? 'all'
+      : (activePill?.textContent || 'selected').replace(/\s*\(\d+\)\s*$/, '').toLowerCase();
+    portfolioResultCount.textContent = `Showing ${categoryName} ${visibleCards.length} OJIX ${visibleCards.length === 1 ? 'product' : 'products'}`;
+  }
+
+  const maxScroll = Math.max(0, portfolioGrid.scrollWidth - portfolioGrid.clientWidth);
+  if (portfolioPrevButton) portfolioPrevButton.disabled = portfolioGrid.scrollLeft <= 4;
+  if (portfolioNextButton) portfolioNextButton.disabled = portfolioGrid.scrollLeft >= maxScroll - 4 || maxScroll <= 4;
+};
+
+const scrollPortfolio = (direction) => {
+  if (!portfolioGrid) return;
+  const firstCard = getVisiblePortfolioCards()[0];
+  const gap = parseFloat(getComputedStyle(portfolioGrid).columnGap) || 20;
+  const distance = firstCard ? firstCard.getBoundingClientRect().width + gap : portfolioGrid.clientWidth * 0.85;
+  portfolioGrid.scrollBy({ left: direction * distance, behavior: 'smooth' });
+};
 
 if (portfolioFilterPills.length > 0) {
   portfolioFilterPills.forEach((pill) => {
@@ -340,11 +407,39 @@ if (portfolioFilterPills.length > 0) {
         }
       });
 
+      if (portfolioGrid) portfolioGrid.scrollTo({ left: 0, behavior: 'smooth' });
+      updatePortfolioControls();
+
       // Notify React Bits Scroll Stack to recalculate visible stack indices
       window.dispatchEvent(new CustomEvent('scrollstack:refresh'));
     });
+
+    pill.addEventListener('keydown', (event) => {
+      const pills = Array.from(portfolioFilterPills);
+      const currentIndex = pills.indexOf(pill);
+      let nextIndex = currentIndex;
+      if (event.key === 'ArrowRight' || event.key === 'ArrowDown') nextIndex = (currentIndex + 1) % pills.length;
+      else if (event.key === 'ArrowLeft' || event.key === 'ArrowUp') nextIndex = (currentIndex - 1 + pills.length) % pills.length;
+      else if (event.key === 'Home') nextIndex = 0;
+      else if (event.key === 'End') nextIndex = pills.length - 1;
+      else return;
+      event.preventDefault();
+      pills[nextIndex].focus();
+      pills[nextIndex].click();
+    });
   });
 }
+
+portfolioPrevButton?.addEventListener('click', () => scrollPortfolio(-1));
+portfolioNextButton?.addEventListener('click', () => scrollPortfolio(1));
+portfolioGrid?.addEventListener('scroll', updatePortfolioControls, { passive: true });
+portfolioGrid?.addEventListener('keydown', (event) => {
+  if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') return;
+  event.preventDefault();
+  scrollPortfolio(event.key === 'ArrowRight' ? 1 : -1);
+});
+window.addEventListener('resize', updatePortfolioControls);
+requestAnimationFrame(updatePortfolioControls);
 
 // 4D-2. STRIPE & PALANTIR STYLE MATRIX TABS INTERACTION
 document.addEventListener('click', (e) => {
@@ -602,6 +697,10 @@ const mainNav = document.getElementById('main-nav');
 if (menuToggle && mainNav) {
   const closeNavigation = ({ returnFocus = false } = {}) => {
     mainNav.classList.remove('is-open');
+    mainNav.querySelectorAll('.nav-item-has-mega.is-mega-open').forEach((container) => {
+      container.classList.remove('is-mega-open');
+      container.querySelector('.nav-top-link[aria-haspopup="true"]')?.setAttribute('aria-expanded', 'false');
+    });
     menuToggle.setAttribute('aria-expanded', 'false');
     menuToggle.setAttribute('aria-label', 'Open navigation menu');
     document.body.classList.remove('nav-open');
@@ -618,13 +717,55 @@ if (menuToggle && mainNav) {
     if (open) mainNav.querySelector('a')?.focus();
   });
 
+  mainNav.addEventListener('click', (event) => {
+    const parentLink = event.target.closest('.nav-top-link[aria-haspopup="true"]');
+    if (!parentLink || window.innerWidth > 1023) return;
+
+    const currentPath = window.location.pathname.replace(/\/$/, '') || '/';
+    const isHomepageDocument = currentPath === '/' || currentPath === '/index.html' || Boolean(SECTION_ROUTES[currentPath]);
+    if (!isHomepageDocument) return;
+
+    event.preventDefault();
+    event.stopImmediatePropagation();
+
+    const container = parentLink.closest('.nav-item-has-mega');
+    if (!container) return;
+    const willOpen = !container.classList.contains('is-mega-open');
+
+    mainNav.querySelectorAll('.nav-item-has-mega').forEach((otherContainer) => {
+      const isCurrent = otherContainer === container;
+      otherContainer.classList.toggle('is-mega-open', isCurrent && willOpen);
+      otherContainer.querySelector('.nav-top-link[aria-haspopup="true"]')
+        ?.setAttribute('aria-expanded', String(isCurrent && willOpen));
+    });
+
+    if (willOpen) {
+      const destination = new URL(parentLink.href, window.location.href);
+      if (window.location.pathname !== destination.pathname) {
+        history.pushState({ section: destination.pathname }, '', destination.pathname);
+      }
+      scrollToCurrentRouteSection();
+    }
+  }, true);
+
+  // Parent disclosure links must stay open long enough for their submenu handler
+  // to run. Only destination links close the mobile navigation.
   mainNav.querySelectorAll('a').forEach((link) => link.addEventListener('click', () => {
+    if (link.matches('.nav-top-link[aria-haspopup="true"]')) return;
     closeNavigation();
   }));
 
   window.addEventListener('keydown', (event) => {
     if (event.key === 'Escape' && menuToggle.getAttribute('aria-expanded') === 'true') {
-      closeNavigation({ returnFocus: true });
+      const openSubmenu = mainNav.querySelector('.nav-item-has-mega.is-mega-open');
+      if (openSubmenu) {
+        openSubmenu.classList.remove('is-mega-open');
+        const parentLink = openSubmenu.querySelector('.nav-top-link[aria-haspopup="true"]');
+        parentLink?.setAttribute('aria-expanded', 'false');
+        parentLink?.focus();
+      } else {
+        closeNavigation({ returnFocus: true });
+      }
     }
   });
 
@@ -635,7 +776,7 @@ if (menuToggle && mainNav) {
   });
 
   const handleViewportResize = () => {
-    if (window.innerWidth > 820 && mainNav.classList.contains('is-open')) {
+    if (window.innerWidth > 1023 && mainNav.classList.contains('is-open')) {
       closeNavigation();
     }
   };
@@ -645,7 +786,7 @@ if (menuToggle && mainNav) {
 
 // 7. GENTLE REVEAL SYSTEM
 const revealElements = document.querySelectorAll('.reveal');
-if ('IntersectionObserver' in window && !prefersReducedMotion) {
+if ('IntersectionObserver' in window && !prefersReducedMotion && !mobilePerformanceMode) {
   const revealObserver = new IntersectionObserver((entries, observer) => {
     entries.forEach((entry) => {
       if (entry.isIntersecting) {
@@ -1101,13 +1242,6 @@ megaContainers.forEach((container) => {
     topLink.addEventListener('mouseenter', () => {
       topLink.setAttribute('aria-expanded', 'true');
     });
-    topLink.addEventListener('click', (e) => {
-      if (window.innerWidth <= 1024) {
-        e.preventDefault();
-        const isOpen = container.classList.toggle('is-mega-open');
-        topLink.setAttribute('aria-expanded', String(isOpen));
-      }
-    });
     container.addEventListener('mouseleave', () => {
       topLink.setAttribute('aria-expanded', 'false');
       container.classList.remove('is-mega-open');
@@ -1128,7 +1262,24 @@ const heroNextBtn = document.getElementById('eleks-hero-next');
 if (heroCards.length > 0) {
   let activeHeroIndex = 0;
   let heroAutoTimer = null;
+  let heroTouchStartX = 0;
+  let heroTouchStartY = 0;
+  let suppressHeroClickUntil = 0;
+  let heroShowcaseVisible = true;
   const HERO_AUTOPLAY_MS = 10000;
+  const compactHeroQuery = window.matchMedia('(max-width: 1023px)');
+  const singleSlideHeroQuery = window.matchMedia('(max-width: 767px), (max-width: 1023px) and (max-height: 600px)');
+
+  const alignActiveHeroCard = (card) => {
+    if (!card || !compactHeroQuery.matches || singleSlideHeroQuery.matches) return;
+    window.requestAnimationFrame(() => {
+      const targetLeft = card.offsetLeft - (heroCardsContainer.clientWidth - card.offsetWidth) / 2;
+      heroCardsContainer.scrollTo({
+        left: Math.max(0, targetLeft),
+        behavior: prefersReducedMotion ? 'auto' : 'smooth'
+      });
+    });
+  };
 
   const syncHeroArrowsPlacement = (activeCard) => {
     if (!heroArrows || !activeCard) return;
@@ -1157,13 +1308,14 @@ if (heroCards.length > 0) {
       if (isActive) {
         syncHeroArrowsPlacement(card);
         restartProgressBar(card);
+        alignActiveHeroCard(card);
       }
     });
   };
 
   const resetHeroAutoplay = () => {
     if (heroAutoTimer) clearInterval(heroAutoTimer);
-    if (!prefersReducedMotion) {
+    if (!prefersReducedMotion && !compactHeroQuery.matches && heroShowcaseVisible) {
       heroAutoTimer = setInterval(() => {
         setActiveHeroSlide(activeHeroIndex + 1);
       }, HERO_AUTOPLAY_MS);
@@ -1173,9 +1325,19 @@ if (heroCards.length > 0) {
   // Initial placement of arrows inside the active card
   syncHeroArrowsPlacement(heroCards[0]);
   resetHeroAutoplay();
+  compactHeroQuery.addEventListener?.('change', resetHeroAutoplay);
+
+  if ('IntersectionObserver' in window) {
+    const heroVisibilityObserver = new IntersectionObserver(([entry]) => {
+      heroShowcaseVisible = Boolean(entry?.isIntersecting);
+      resetHeroAutoplay();
+    }, { threshold: 0.08 });
+    heroVisibilityObserver.observe(heroCardsContainer);
+  }
 
   heroCards.forEach((card, idx) => {
     card.addEventListener('click', (e) => {
+      if (Date.now() < suppressHeroClickUntil) return;
       // Do not intercept clicks on links or arrow buttons inside the active card
       if (e.target.closest('a, .eleks-hero-arrows')) return;
       if (idx !== activeHeroIndex) {
@@ -1205,6 +1367,23 @@ if (heroCards.length > 0) {
       }
     });
   });
+
+  heroCardsContainer.addEventListener('touchstart', (e) => {
+    if (!compactHeroQuery.matches || e.touches.length !== 1) return;
+    heroTouchStartX = e.touches[0].clientX;
+    heroTouchStartY = e.touches[0].clientY;
+  }, { passive: true });
+
+  heroCardsContainer.addEventListener('touchend', (e) => {
+    if (!compactHeroQuery.matches || e.changedTouches.length !== 1) return;
+    const deltaX = e.changedTouches[0].clientX - heroTouchStartX;
+    const deltaY = e.changedTouches[0].clientY - heroTouchStartY;
+    if (Math.abs(deltaX) < 45 || Math.abs(deltaX) <= Math.abs(deltaY)) return;
+
+    suppressHeroClickUntil = Date.now() + 400;
+    setActiveHeroSlide(activeHeroIndex + (deltaX < 0 ? 1 : -1));
+    resetHeroAutoplay();
+  }, { passive: true });
 
   if (heroPrevBtn) {
     heroPrevBtn.addEventListener('click', (e) => {
